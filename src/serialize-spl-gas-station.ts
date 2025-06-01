@@ -116,7 +116,7 @@ export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, fe
       "details": {
           "fee": {
             "type": "custom",
-            "priority_fee": "100000"
+            "priority_fee": "10000"
           },
           "type": "solana_serialized_transaction_message",
           "push_mode": "auto",
