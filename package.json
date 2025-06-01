@@ -1,9 +1,9 @@
 {
-    "name": "@fordefi/dev",
+    "name": "@fordefi/gas-station",
     "version": "1.0.0",
     "main": "index.js",
     "scripts": {
-        "gas": "ts-node --project tsconfig.json ./src/tx-gas.ts"
+        "gas": "ts-node --project tsconfig.json ./src/run.ts"
     },
     "keywords": [],
     "author": "",

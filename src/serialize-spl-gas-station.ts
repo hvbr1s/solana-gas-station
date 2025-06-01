@@ -1,6 +1,6 @@
-import * as kit from '@solana/kit';
 import { getSetComputeUnitLimitInstruction } from '@solana-program/compute-budget';
-import { FordefiSolanaConfig } from './tx-gas'
+import * as kit from '@solana/kit';
+import { FordefiSolanaConfig } from './config'
 import {
   TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
@@ -8,14 +8,10 @@ import {
 } from '@solana-program/token';
 
 const mainnetRpc = kit.createSolanaRpc('https://api.mainnet-beta.solana.com');
-const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const DECIMALS = 6n;                                            
-const AMOUNT = 1n * 10n ** DECIMALS;  
-
+                                        
 const getComputeUnitEstimateForTransactionMessage = kit.getComputeUnitEstimateForTransactionMessageFactory({
   rpc: mainnetRpc,
 });
-
 
 export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
     const sourceVault = kit.address(fordefiConfig.originAddress)
@@ -23,7 +19,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
     const destVault = kit.address(fordefiConfig.destAddress)
     const feePayer = kit.address(fordefiConfig.feePayer)
     const feePayerSigner = kit.createNoopSigner(feePayer)
-    const usdcMint = kit.address(USDC_MINT)
+    const usdcMint = kit.address(fordefiConfig.tokenMint)
     console.debug("Source vault -> ", sourceVault)
     console.debug("Dest vault -> ", destVault)
     console.debug("Fee payer -> ", feePayer)
@@ -50,8 +46,8 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
         mint:        usdcMint,
         destination: destAta,
         authority:   sourceVaultSigner,       
-        amount:      AMOUNT,
-        decimals:    Number(DECIMALS),
+        amount:      fordefiConfig.amount,
+        decimals:    Number(fordefiConfig.decimals),
       })
     );
     console.log("Transfer Ixs ->", ixes)
@@ -80,7 +76,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
 
     // Optional -> Budget CU
     const computeUnitsEstimate = await getComputeUnitEstimateForTransactionMessage(txMessage);
-    const boostedBudget = computeUnitsEstimate * 8
+    const boostedBudget = computeUnitsEstimate * 10
     console.log("Compute budged ->", boostedBudget)
     const txMessageWithComputeUnitLimit = kit.prependTransactionMessageInstruction(
       getSetComputeUnitLimitInstruction({ units: boostedBudget }),
@@ -120,7 +116,7 @@ export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, fe
       "details": {
           "fee": {
             "type": "custom",
-            "priority_fee": "10000"
+            "priority_fee": "100000"
           },
           "type": "solana_serialized_transaction_message",
           "push_mode": "auto",

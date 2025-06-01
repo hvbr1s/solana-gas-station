@@ -13,7 +13,7 @@ export async function getPriorityFees(): Promise<number> {
     
     const data = await response.json();
     
-    // Calculate average of prioritization fees for the last 150 blocks
+    // Average of prioritization fees for the last 150 blocks
     const fees: number[] = data.result.map((item: { slot: number, prioritizationFee: number }) => item.prioritizationFee);
     const sum: number = fees.reduce((acc: number, fee: number) => acc + fee, 0);
     const average: number = Math.ceil(sum / fees.length);
