@@ -82,7 +82,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig): Pro
       txMessage,
     );
 
-    // Calculate Priority Fee
+    // Priority Fee calculation
     let addresses = [sourceVault, destVault, feePayer, usdcMint];
     const priorityFee = await getPriorityFees(addresses, mainnetRpc)
     console.log(`Priority fee -> ${priorityFee}`)
