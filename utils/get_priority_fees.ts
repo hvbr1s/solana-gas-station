@@ -19,8 +19,6 @@ export async function getPriorityFees(): Promise<number> {
     const average: number = Math.ceil(sum / fees.length);
     const buffer: number = 1000;
     const finalFee: number = average + buffer;
-   
-    console.log(`Priority fee -> ${finalFee}`)
 
     return finalFee;
 }

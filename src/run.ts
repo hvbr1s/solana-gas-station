@@ -12,15 +12,15 @@ async function main(): Promise<void> {
   }
 
   const [jsonBody, msgData] = await signFeePayerVault(fordefiConfig);
-  console.log("JSON request: ", jsonBody)
   const requestBody = JSON.stringify(jsonBody);
   const timestamp = new Date().getTime();
-  const payload = `${fordefiConfig.apiPathEndpoint}|${timestamp}|${requestBody}`;
-  const signature = await signWithApiSigner(payload, fordefiConfig.privateKeyPem);
+  const feePayerVaultPayload = `${fordefiConfig.apiPathEndpoint}|${timestamp}|${requestBody}`;
+  const feePayerVaultSignature = await signWithApiSigner(feePayerVaultPayload, fordefiConfig.privateKeyPem);
+
   const response = await createAndSignTx(
     fordefiConfig.apiPathEndpoint, 
     fordefiConfig.accessToken, 
-    signature, 
+    feePayerVaultSignature, 
     timestamp, 
     requestBody
   );
@@ -31,13 +31,11 @@ async function main(): Promise<void> {
   console.log("First sig ->", data.signatures[0])
 
   try {
-
     // Create payload for source Vault signature
     const sourceVaultRequest = await signWithSourceVault(fordefiConfig, data.signatures[0], msgData);
     const sourceVaultRequestBody = JSON.stringify(sourceVaultRequest);
     const sourceVaultTimestamp = new Date().getTime();
     const sourceVaultPayload = `${fordefiConfig.apiPathEndpoint}|${sourceVaultTimestamp}|${sourceVaultRequestBody}`;
-
     const sourceVaultSignature = await signWithApiSigner(sourceVaultPayload, fordefiConfig.privateKeyPem);
     
     // Send the second request to Fordefi for the source vault to sign and broadcast

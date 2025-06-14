@@ -1,5 +1,6 @@
-import { getSetComputeUnitLimitInstruction } from '@solana-program/compute-budget';
+import { getSetComputeUnitLimitInstruction, getSetComputeUnitPriceInstruction } from '@solana-program/compute-budget';
 import * as kit from '@solana/kit';
+import { getPriorityFees } from '../utils/get_priority_fees'
 import { FordefiSolanaConfig } from './config'
 import {
   TOKEN_PROGRAM_ADDRESS,
@@ -9,16 +10,12 @@ import {
 
 const mainnetRpc = kit.createSolanaRpc('https://api.mainnet-beta.solana.com');
                                         
-const getComputeUnitEstimateForTransactionMessage = kit.getComputeUnitEstimateForTransactionMessageFactory({
-  rpc: mainnetRpc,
-});
 
 export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
     const sourceVault = kit.address(fordefiConfig.originAddress)
     const sourceVaultSigner = kit.createNoopSigner(sourceVault)
     const destVault = kit.address(fordefiConfig.destAddress)
     const feePayer = kit.address(fordefiConfig.feePayer)
-    const feePayerSigner = kit.createNoopSigner(feePayer)
     const usdcMint = kit.address(fordefiConfig.tokenMint)
     console.debug("Source vault -> ", sourceVault)
     console.debug("Dest vault -> ", destVault)
@@ -29,7 +26,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
       mint:       usdcMint,
       tokenProgram: TOKEN_PROGRAM_ADDRESS,
     });
-    console.debug("Source ATA", sourceAta)
+    console.debug("Source ATA -> ", sourceAta)
     
     const [destAta] = await findAssociatedTokenPda({
       owner:        destVault,
@@ -52,7 +49,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
     );
     console.log("Transfer Ixs ->", ixes)
 
-    // Upgrade source vault role to writable
+    // Upgrade source vault account role to writable
     const updatedAccounts = [...ixes[0].accounts];
     updatedAccounts[3] = {
       ...updatedAccounts[3],
@@ -62,12 +59,10 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
       ...ixes[0],
       accounts: updatedAccounts
     };
-
     const { value: latestBlockhash } = await mainnetRpc.getLatestBlockhash().send();
-
     const txMessage = kit.pipe(
       kit.createTransactionMessage({ version: 0 }),
-      message => kit.setTransactionMessageFeePayerSigner(feePayerSigner, message),
+      message => kit.setTransactionMessageFeePayer(feePayer, message),
       message => kit.setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, message),
       message => kit.appendTransactionMessageInstruction(ixes[0], message)
     );
@@ -75,20 +70,29 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
     console.log("Tx instructions detailed:", JSON.stringify(txMessage.instructions, null, 2));
 
     // Optional -> Budget CU
+    const getComputeUnitEstimateForTransactionMessage = kit.getComputeUnitEstimateForTransactionMessageFactory({
+      rpc: mainnetRpc,
+    });
     const computeUnitsEstimate = await getComputeUnitEstimateForTransactionMessage(txMessage);
-    const boostedBudget = computeUnitsEstimate * 10
-    console.log("Compute budged ->", boostedBudget)
+    const boostedBudget = computeUnitsEstimate * 2 
+    console.log("Compute budget ->", boostedBudget)
+
     const txMessageWithComputeUnitLimit = kit.prependTransactionMessageInstruction(
       getSetComputeUnitLimitInstruction({ units: boostedBudget }),
       txMessage,
     );
+    const txMessageWithComputeUnitLimitPriced = kit.prependTransactionMessageInstruction(
+      getSetComputeUnitPriceInstruction({microLamports: 200_000}),
+      txMessageWithComputeUnitLimit
+    );
+    console.debug("Signed message ->", txMessageWithComputeUnitLimitPriced)
 
-    const signedTx = await kit.partiallySignTransactionMessageWithSigners(txMessageWithComputeUnitLimit);
-    console.log("Signed transaction: ", signedTx)
+    const partiallySignedTx = await kit.partiallySignTransactionMessageWithSigners(txMessageWithComputeUnitLimitPriced);
+    console.log("Signed transaction: ", partiallySignedTx)
 
-    const base64EncodedData = Buffer.from(signedTx.messageBytes).toString('base64');
+    const base64EncodedData = Buffer.from(partiallySignedTx.messageBytes).toString('base64');
     console.debug("Raw data ->", base64EncodedData)
-
+    
     const jsonBody = {
         "vault_id": fordefiConfig.feePayerVault,
         "signer_type": "api_signer",
@@ -104,19 +108,25 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
         "wait_for_state": "signed" // only for create-and-wait
     };
 
-    return [jsonBody, base64EncodedData];
+    return [jsonBody, base64EncodedData ];
 }
 
-export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, feePayerSignature: any, msgData: any) {
+export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, feePayerSignature: any, msgData: any) {  
+
+  const priorityFee = await getPriorityFees()
+  const boostedPriorityFee = (priorityFee * 2).toString()
+  console.log(`Priority fee -> ${boostedPriorityFee}`)
+  
   const jsonBody = {
       "vault_id": fordefiConfig.originVault, 
       "signer_type": "api_signer",
       "sign_mode": "auto",
       "type": "solana_transaction",
+      "skip_prediction": false,
       "details": {
           "fee": {
             "type": "custom",
-            "priority_fee": "10000"
+            "priority_fee": boostedPriorityFee
           },
           "type": "solana_serialized_transaction_message",
           "push_mode": "auto",
