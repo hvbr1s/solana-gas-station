@@ -11,7 +11,7 @@ import {
 const mainnetRpc = kit.createSolanaRpc('https://api.mainnet-beta.solana.com');
                                         
 
-export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
+export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig): Promise<any>{
     const sourceVault = kit.address(fordefiConfig.originAddress)
     const sourceVaultSigner = kit.createNoopSigner(sourceVault)
     const destVault = kit.address(fordefiConfig.destAddress)
@@ -74,15 +74,20 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
       rpc: mainnetRpc,
     });
     const computeUnitsEstimate = await getComputeUnitEstimateForTransactionMessage(txMessage);
-    const boostedBudget = computeUnitsEstimate * 2 
+    const boostedBudget = computeUnitsEstimate * 10 
     console.log("Compute budget ->", boostedBudget)
 
     const txMessageWithComputeUnitLimit = kit.prependTransactionMessageInstruction(
       getSetComputeUnitLimitInstruction({ units: boostedBudget }),
       txMessage,
     );
+
+    // Calculate Priority Fee
+    let addresses = [sourceVault, destVault, feePayer, usdcMint];
+    const priorityFee = await getPriorityFees(addresses, mainnetRpc)
+    console.log(`Priority fee -> ${priorityFee}`)
     const txMessageWithComputeUnitLimitPriced = kit.prependTransactionMessageInstruction(
-      getSetComputeUnitPriceInstruction({microLamports: 200_000}),
+      getSetComputeUnitPriceInstruction({microLamports: priorityFee}),
       txMessageWithComputeUnitLimit
     );
     console.debug("Signed message ->", txMessageWithComputeUnitLimitPriced)
@@ -108,15 +113,10 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig){
         "wait_for_state": "signed" // only for create-and-wait
     };
 
-    return [jsonBody, base64EncodedData ];
+    return [jsonBody, base64EncodedData, priorityFee];
 }
 
-export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, feePayerSignature: any, msgData: any) {  
-
-  const priorityFee = await getPriorityFees()
-  const boostedPriorityFee = (priorityFee * 2).toString()
-  console.log(`Priority fee -> ${boostedPriorityFee}`)
-  
+export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, feePayerSignature: any, msgData: any, priorityFee: number): Promise<any> {  
   const jsonBody = {
       "vault_id": fordefiConfig.originVault, 
       "signer_type": "api_signer",
@@ -126,7 +126,7 @@ export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, fe
       "details": {
           "fee": {
             "type": "custom",
-            "priority_fee": boostedPriorityFee
+            "priority_fee": priorityFee.toString()
           },
           "type": "solana_serialized_transaction_message",
           "push_mode": "auto",

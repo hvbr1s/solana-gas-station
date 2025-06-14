@@ -11,7 +11,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const [jsonBody, msgData] = await signFeePayerVault(fordefiConfig);
+  const [jsonBody, msgData, priorityFee] = await signFeePayerVault(fordefiConfig);
   const requestBody = JSON.stringify(jsonBody);
   const timestamp = new Date().getTime();
   const feePayerVaultPayload = `${fordefiConfig.apiPathEndpoint}|${timestamp}|${requestBody}`;
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
   try {
     // Create payload for source Vault signature
-    const sourceVaultRequest = await signWithSourceVault(fordefiConfig, data.signatures[0], msgData);
+    const sourceVaultRequest = await signWithSourceVault(fordefiConfig, data.signatures[0], msgData, priorityFee);
     const sourceVaultRequestBody = JSON.stringify(sourceVaultRequest);
     const sourceVaultTimestamp = new Date().getTime();
     const sourceVaultPayload = `${fordefiConfig.apiPathEndpoint}|${sourceVaultTimestamp}|${sourceVaultRequestBody}`;
