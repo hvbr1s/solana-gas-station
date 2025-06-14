@@ -1,20 +1,12 @@
-export async function getPriorityFees(): Promise<number> {
-    const response = await fetch('https://api.mainnet-beta.solana.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getRecentPrioritizationFees'
-        }),
-    });
-    
-    const data = await response.json();
-    
-    // Average of prioritization fees for the last 150 blocks
-    const fees: number[] = data.result.map((item: { slot: number, prioritizationFee: number }) => item.prioritizationFee);
+export async function getPriorityFees(accounts: string[], mainnetRpc: any): Promise<number> {
+    const response = await mainnetRpc
+        .getRecentPrioritizationFees(accounts)
+        .send();
+    if (!response?.value?.result) {
+        console.error('Invalid response format:', response);
+        return 1000; // fallback fee
+    }
+    const fees: number[] = response.value.result.map((item: { slot: number, prioritizationFee: number }) => item.prioritizationFee);
     const sum: number = fees.reduce((acc: number, fee: number) => acc + fee, 0);
     const average: number = Math.ceil(sum / fees.length);
     const buffer: number = 1000;
