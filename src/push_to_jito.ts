@@ -3,8 +3,6 @@ import { get_tx } from '../utils/process_tx'
 
 export async function pushToJito(transaction_id: string, accessToken:string): Promise<void> {
   try {
-
-    // Prep path
     const path = `/api/v1/transactions/${transaction_id}`;
 
     // Fetch raw signature from tx object
@@ -35,7 +33,6 @@ export async function pushToJito(transaction_id: string, accessToken:string): Pr
   } catch (error: any) {
     console.error(`Error sending transaction: ${error}`);
 
-    // Handle errors if any
     if (error.response) {
       console.error(`Response content:`, JSON.stringify(error.response.data, null, 2));
       console.error(`Status code:`, error.response.status);
