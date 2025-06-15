@@ -1,16 +1,11 @@
 import { getSetComputeUnitLimitInstruction, getSetComputeUnitPriceInstruction } from '@solana-program/compute-budget';
-import * as kit from '@solana/kit';
+import { TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, getTransferCheckedInstruction,} from '@solana-program/token';
 import { getPriorityFees } from '../utils/get_priority_fees'
 import { FordefiSolanaConfig } from './config'
-import {
-  TOKEN_PROGRAM_ADDRESS,
-  findAssociatedTokenPda,
-  getTransferCheckedInstruction,
-} from '@solana-program/token';
+import * as kit from '@solana/kit';
 
 const mainnetRpc = kit.createSolanaRpc('https://api.mainnet-beta.solana.com');
                                         
-
 export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig): Promise<any>{
     const sourceVault = kit.address(fordefiConfig.originAddress)
     const sourceVaultSigner = kit.createNoopSigner(sourceVault)
@@ -74,7 +69,7 @@ export async function signFeePayerVault(fordefiConfig: FordefiSolanaConfig): Pro
       rpc: mainnetRpc,
     });
     const computeUnitsEstimate = await getComputeUnitEstimateForTransactionMessage(txMessage);
-    const boostedBudget = computeUnitsEstimate * 10 
+    const boostedBudget = computeUnitsEstimate * 2 
     console.log("Compute budget ->", boostedBudget)
 
     const txMessageWithComputeUnitLimit = kit.prependTransactionMessageInstruction(
@@ -129,7 +124,7 @@ export async function signWithSourceVault(fordefiConfig: FordefiSolanaConfig, fe
             "priority_fee": priorityFee.toString()
           },
           "type": "solana_serialized_transaction_message",
-          "push_mode": "auto",
+          "push_mode": fordefiConfig.useJito ? "manual" : "auto",
           "chain": "solana_mainnet",
           "data": msgData,
           "signatures":[
